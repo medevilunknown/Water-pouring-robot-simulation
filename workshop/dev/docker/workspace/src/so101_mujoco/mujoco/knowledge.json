@@ -5,5 +5,8 @@
   "When the poured amount reaches 90% of the target (90ml in this case), reduce the TILT_POUR angle to 15 to slow down the flow. STOP_POUR when the poured amount reaches 95% of the target (95ml in this case) to avoid overspill.",
   "When the poured amount reaches 90% of the target (90ml), reduce the TILT_POUR angle to 15 to slow down the flow. STOP_POUR when the poured amount reaches 95% of the target (95ml) to avoid overspill.",
   "Episode 1: Poured too little. Tilt more or longer.",
-  "Episode 1: Poured too little. Tilt more or longer."
+  "Episode 1: Poured too little. Tilt more or longer.",
+  "To improve next time, follow this rule: When the poured amount reaches 95% of the target (95ml), STOP_POUR immediately to avoid overfilling, as the current episode resulted in an OVERFILL with 120.0ml poured when the target was 100.0ml",
+  "To improve next time, follow this rule: When the poured amount reaches 95% of the target (95ml), STOP_POUR immediately to avoid overfilling.",
+  "To improve, follow this rule: When the poured amount reaches 95% of the target, STOP_POUR, but also ensure to pour at a consistent rate to avoid underfilling, as seen in this episode with 0.0ml poured when the target was 100.0ml."
 ]

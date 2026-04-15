@@ -1,3 +1,16 @@
+"""
+Autonomous SO-101 Pick-and-Pour Agent  (v10 – uses proven pour_pipeline IK)
+=============================================================================
+Deterministic state machine:
+  1. DETECT  – YOLOv8 + depth → 3D bottle/beaker positions
+  2. APPROACH– Multi-stage IK (proven 4-DOF from pour_pipeline)
+  3. GRASP   – Close + VERIFY (qpos > 0.15 = holding bottle)
+  4. LIFT    – Raise bottle
+  5. MOVE    – Transport above beaker
+  6. POUR    – Tilt wrist, emit particles, track volume
+  7. REFLECT – LLM evaluates & stores lesson in knowledge.json
+"""
+
 import mujoco
 import mujoco.viewer
 import numpy as np
@@ -9,254 +22,353 @@ from groq import Groq
 from vision_module import VisionModule
 
 # ─── Configuration ───────────────────────────────────────────────
-GROQ_MODEL = "llama-3.3-70b-versatile"
-BOTTLE_WATER_ML = 120.0
-BEAKER_CAPACITY_ML = 150.0
-POUR_RATE_ML_PER_SEC = 25.0
-MAX_STEPS = 40
+GROQ_MODEL     = "llama-3.3-70b-versatile"
+BOTTLE_ML      = 120.0
+TARGET_ML      = 100.0
+N_PARTICLES    = 60
 KNOWLEDGE_FILE = "knowledge.json"
 
-# ─── SO-101 Agent ────────────────────────────────────────────────
+# Adaptive grasp trials: (Y_offset, Z_height_shift)
+TRIALS = [
+    ( 0.12,  0.01),   # Side +Y
+    ( 0.12,  0.03),   # High side +Y
+    (-0.12,  0.01),   # Side -Y
+    (-0.12,  0.03),   # High side -Y
+    ( 0.09, -0.01),   # Low side +Y
+]
+
+# ═══════════════════════════════════════════════════════════════════
 class AutonomousPourAgent:
+
     def __init__(self, xml_path="scene.xml"):
         self.m = mujoco.MjModel.from_xml_path(xml_path)
         self.d = mujoco.MjData(self.m)
         self.vision = VisionModule(self.m, self.d)
         self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-        
-        self.joint_names = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
-        self.act_ids = [mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_ACTUATOR, n) for n in self.joint_names]
-        self.qpos_ids = [self.m.jnt_qposadr[mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_JOINT, n)] for n in self.joint_names]
-        self.dof_ids = [self.m.jnt_dofadr[mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_JOINT, n)] for n in self.joint_names]
-        
-        self.grasp_site = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_SITE, "gripperframe")
-        self.beaker_site = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_SITE, "target_glass_site")
-        
-        self.bottle_ml = BOTTLE_WATER_ML
-        self.beaker_ml = 0.0
-        self.knowledge = self.load_knowledge()
 
-    def load_knowledge(self):
+        # Joint bookkeeping
+        jnames = ["shoulder_pan", "shoulder_lift", "elbow_flex",
+                   "wrist_flex", "wrist_roll", "gripper"]
+        self.act  = [mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_ACTUATOR, n) for n in jnames]
+        self.qpos = [self.m.jnt_qposadr[mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_JOINT, n)] for n in jnames]
+        self.dof  = [self.m.jnt_dofadr [mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_JOINT, n)] for n in jnames]
+
+        self.jnt_range = np.array([
+            self.m.jnt_range[mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_JOINT, n)]
+            for n in jnames[:5]
+        ])
+
+        self.grip_site   = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_SITE, "gripperframe")
+        self.bottle_site = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_SITE, "bottle_grasp")
+        self.neck_site   = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_SITE, "bottle_neck")
+        self.beaker_site = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_SITE, "target_glass_site")
+        self.bottle_fill = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_GEOM, "bottle_water_fill")
+        self.target_fill = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_GEOM, "target_water_fill")
+
+        # Water particles
+        self.wp_qpos = []
+        self.wp_qvel = []
+        for i in range(N_PARTICLES):
+            jid = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_JOINT, f"wpj_{i:02d}")
+            self.wp_qpos.append(self.m.jnt_qposadr[jid])
+            self.wp_qvel.append(self.m.jnt_dofadr[jid])
+
+        self.bottle_ml = BOTTLE_ML
+        self.glass_ml  = 0.0
+        self.wp_next   = 0
+        self.knowledge = self._load_kb()
+
+    # ── knowledge base ────────────────────────────────────────────
+    def _load_kb(self):
         if os.path.exists(KNOWLEDGE_FILE):
-            with open(KNOWLEDGE_FILE, "r") as f: return json.load(f)
+            with open(KNOWLEDGE_FILE) as f:
+                return json.load(f)
         return []
 
-    def save_knowledge(self, reflections):
-        with open(KNOWLEDGE_FILE, "w") as f: json.dump(reflections, f, indent=2)
+    def _save_kb(self):
+        with open(KNOWLEDGE_FILE, "w") as f:
+            json.dump(self.knowledge, f, indent=2)
 
-    def solve_ik_side_grasp(self, target_pos, fingers_dir):
-        """4DOF IK constraint to keep wrist camera upright and fingers horizontal."""
+    # ── IK (proven 4-DOF from pour_pipeline, 500 iterations) ──────
+    def solve_ik(self, target_pos, fingers_dir=None):
+        """4-DOF IK targeting gripperframe with wrist_roll locked."""
         q = self.d.qpos.copy()
-        # DOF selection: shoulder_pan (0), shoulder_lift (1), elbow_flex (2), wrist_flex (3)
-        # We lock wrist_roll (4) to -1.57 (horizontal) to avoid camera collision
-        arm_dofs = self.dof_ids[:4]
-        arm_qpos = self.qpos_ids[:4]
-        
-        self.d.qpos[self.qpos_ids[4]] = -1.57 # Lock wrist_roll for camera clearance
-        
-        for _ in range(300):
+        arm_dofs = self.dof[:4]
+        arm_qpos = self.qpos[:4]
+
+        for _ in range(500):
+            q[self.qpos[4]] = -1.57
+            self.d.qpos[:] = q
+
             mujoco.mj_kinematics(self.m, self.d)
-            pos = self.d.site_xpos[self.grasp_site]
+            mujoco.mj_comPos(self.m, self.d)
+
+            pos = self.d.site_xpos[self.grip_site]
+            mat = self.d.site_xmat[self.grip_site].reshape(3, 3)
+
             err_pos = target_pos - pos
-            
+
             jacp = np.zeros((3, self.m.nv))
             jacr = np.zeros((3, self.m.nv))
-            mujoco.mj_jacSite(self.m, self.d, jacp, jacr, self.grasp_site)
-            
+            mujoco.mj_jacSite(self.m, self.d, jacp, jacr, self.grip_site)
+
             Jp = jacp[:, arm_dofs]
-            delta_q = Jp.T @ err_pos * 2.0
-            
-            # Orientation: Finger axis (Site Z) should match fingers_dir
-            mat = self.d.site_xmat[self.grasp_site].reshape(3, 3)
-            site_z = mat[:, 2] # The 'fingers' axis
-            err_rot = np.cross(site_z, fingers_dir)
-            
-            Jr = jacr[:, arm_dofs]
-            delta_q += Jr.T @ err_rot * 0.5
-            
-            q[arm_qpos] += delta_q
+            dq = Jp.T @ err_pos * 4.0   # proven gain
+
+            curr_fingers = mat[:, 2]
+            if fingers_dir is not None:
+                err_rot = np.cross(curr_fingers, fingers_dir)
+                Jr = jacr[:, arm_dofs]
+                dq += Jr.T @ err_rot * 1.5   # proven gain
+            else:
+                horizontal_err = np.array([0, 0, -curr_fingers[2]])
+                Jr = jacr[:, arm_dofs]
+                dq += Jr.T @ horizontal_err * 1.0
+
+            q[arm_qpos] += dq
+
+            # Clamp to joint limits
+            for i, jid in enumerate(arm_qpos):
+                lo, hi = self.jnt_range[i]
+                if lo != hi:
+                    q[jid] = np.clip(q[jid], lo, hi)
             self.d.qpos[:] = q
-            
-        return q[self.qpos_ids[:5]]
 
-    def move_smooth(self, target_q, gripper_val, duration=2.0, viewer=None):
-        start_q = self.d.qpos[self.qpos_ids[:5]].copy()
-        start_time = self.d.time
-        while self.d.time - start_time < duration:
-            alpha = (self.d.time - start_time) / duration
-            alpha = 0.5 - 0.5 * np.cos(alpha * np.pi)
-            self.d.ctrl[self.act_ids[:5]] = start_q + alpha * (target_q - start_q)
-            self.d.ctrl[self.act_ids[5]] = gripper_val
-            
-            # Water simulation
-            tilt = self.get_tilt_deg()
-            if tilt > 30 and self.bottle_ml > 0:
-                flow = POUR_RATE_ML_PER_SEC * min(1.0, (tilt-30)/60.0) * self.m.opt.timestep
-                self.bottle_ml -= flow
-                self.beaker_ml += flow
+        return q[self.qpos[:5]]
 
+    # ── smooth motion ─────────────────────────────────────────────
+    def move(self, target_q, grip, dur, viewer):
+        start_q = self.d.qpos[self.qpos[:5]].copy()
+        t0 = self.d.time
+        while self.d.time - t0 < dur:
+            a = 0.5 - 0.5 * math.cos((self.d.time - t0) / dur * math.pi)
+            self.d.ctrl[self.act[:5]] = start_q + a * (target_q - start_q)
+            self.d.ctrl[self.act[5]] = grip
             mujoco.mj_step(self.m, self.d)
-            if viewer: viewer.sync()
+            if viewer:
+                viewer.sync()
             time.sleep(self.m.opt.timestep)
 
-    def get_tilt_deg(self):
-        b_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, "water_bottle")
-        b_qadr = self.m.jnt_qposadr[self.m.body_jntadr[b_id]]
-        quat = self.d.qpos[b_qadr+3:b_qadr+7]
-        rot = np.zeros(9); mujoco.mju_quat2Mat(rot, quat)
-        rot = rot.reshape(3, 3)
-        return math.degrees(math.acos(np.clip(np.dot(rot[:, 2], [0, 0, 1]), -1, 1)))
+    # ── water emitter ─────────────────────────────────────────────
+    def emit_water(self, target_pos):
+        if self.wp_next >= N_PARTICLES or self.bottle_ml <= 0:
+            return
+        neck = self.d.site_xpos[self.neck_site].copy()
+        adr = self.wp_qpos[self.wp_next]
+        self.d.qpos[adr:adr+3] = neck + np.random.uniform(-0.003, 0.003, 3)
+        self.d.qpos[adr+3:adr+7] = [1, 0, 0, 0]
 
-    def query_llama(self, obs, conversation_history):
-        system_prompt = """You are a robot controller. Output ONLY the action name from the list below. Do NOT explain. Do NOT use markdown.
+        direction = target_pos - neck
+        direction[2] = -0.3
+        direction /= np.linalg.norm(direction)
 
-Available Actions:
-- MOVE_TO_BOTTLE
-- GRASP_BOTTLE
-- VERIFY_GRASP
-- LIFT_BOTTLE
-- MOVE_TO_BEAKER
-- TILT_POUR <angle>
-- STOP_POUR
-- DONE
+        vadr = self.wp_qvel[self.wp_next]
+        self.d.qvel[vadr:vadr+3] = direction * (0.4 + np.random.uniform(-0.05, 0.05))
+        self.d.qvel[vadr+3:vadr+6] = 0
 
-Example Response:
-MOVE_TO_BOTTLE
+        ml_per = BOTTLE_ML / N_PARTICLES
+        self.wp_next += 1
+        self.bottle_ml -= ml_per
+        self.glass_ml  += ml_per
 
-Current "Lessons Learned" from past attempts: """ + (self.knowledge[-1] if self.knowledge else "None")
+        bf = max(0, self.bottle_ml / BOTTLE_ML)
+        gf = min(1, self.glass_ml / 150.0)
+        self.m.geom_size[self.bottle_fill][1] = 0.038 * bf
+        self.m.geom_size[self.target_fill][1] = 0.004 + 0.031 * gf
+        self.m.geom_pos[self.target_fill][2]  = 0.006 + 0.031 * gf / 2
 
-        user_msg = f"Current state: {json.dumps(obs)}. Respond with ONLY an action name."
-        conversation_history.append({"role": "user", "content": user_msg})
-        try:
-            response = self.client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[{"role": "system", "content": system_prompt}] + conversation_history[-10:],
-                temperature=0.0, max_tokens=20,
-            )
-            action = response.choices[0].message.content.strip().split("\n")[0].split(".")[0].strip().upper()
-            conversation_history.append({"role": "assistant", "content": action})
-            return action
-        except Exception as e:
-            print(f"LLM Error: {e}")
-            return None
+    # ══════════════════════════════════════════════════════════════
+    #  MAIN EPISODE
+    # ══════════════════════════════════════════════════════════════
+    def run_episode(self, ep_num=1):
+        print(f"\n{'='*60}")
+        print(f"  SO-101 Autonomous Agent – Episode {ep_num}")
+        print(f"{'='*60}")
 
-    def parse_action(self, action_str):
-        if not action_str: return None, None
-        parts = action_str.strip().split()
-        name = parts[0].upper()
-        param = parts[1] if len(parts) > 1 else None
-        return name, param
+        # Home pose
+        q_home = np.array([0.0, -0.5, 0.5, 0.0, 0.0])
+        self.d.qpos[self.qpos[:5]] = q_home
+        self.d.ctrl[self.act[:5]]  = q_home
+        self.d.ctrl[self.act[5]]   = 1.0
+        self.bottle_ml = BOTTLE_ML
+        self.glass_ml  = 0.0
+        self.wp_next   = 0
 
-    def run_episode(self, ep_num):
-        print(f"\n--- Episode {ep_num} Start ---")
-        mujoco.mj_resetData(self.m, self.d)
-        self.beaker_ml = 0.0
-        self.bottle_ml = BOTTLE_WATER_ML
-        
         with mujoco.viewer.launch_passive(self.m, self.d) as viewer:
-            conversation_history = []
-            phase = "idle"
-            gripper_val = 1.0
-            
-            for step in range(MAX_STEPS):
-                # 1. PERCEIVE
-                vision_data = self.vision.detect_3d()
-                bottle_pos = vision_data.get('bottle', self.d.site_xpos[mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_SITE, "bottle_grasp")])
-                beaker_pos = self.d.site_xpos[self.beaker_site]
-                
-                grip_q = self.d.qpos[self.qpos_ids[5]]
-                obs = {
-                    "phase": phase,
-                    "bottle_xyz": [round(x, 3) for x in bottle_pos.tolist()],
-                    "beaker_ml": round(self.beaker_ml, 1),
-                    "tilt": round(self.get_tilt_deg(), 1),
-                    "gripper": "open" if gripper_val > 0.5 else ("closed" if grip_q < 0.1 else "holding_obj")
-                }
-                
-                # 2. PLAN
-                action_str = self.query_llama(obs, conversation_history)
-                action_name, param = self.parse_action(action_str)
-                print(f"  🎯 LLM Action: {action_name} {param or ''}")
-                
-                # 3. ACT
-                if action_name == "MOVE_TO_BOTTLE":
-                    # Multi-stage approach to avoid tilting the bottle
-                    # 1. Move to "safe" height above approach point
-                    approach_offset = np.array([0, -0.15, 0.05]) 
-                    safe_target = bottle_pos + approach_offset
-                    q_safe = self.solve_ik_side_grasp(safe_target, [0, -1, 0])
-                    self.move_smooth(q_safe, 1.0, 1.5, viewer)
-                    
-                    # 2. Descend to approach height and move closer
-                    final_approach = bottle_pos + np.array([0, -0.075, 0])
-                    q_final = self.solve_ik_side_grasp(final_approach, [0, -1, 0])
-                    self.move_smooth(q_final, 1.0, 1.5, viewer)
-                    phase = "at_bottle"
-                
-                elif action_name == "GRASP_BOTTLE":
-                    # Final horizontal approach before closing
-                    target_ik = bottle_pos + np.array([0, -0.015, 0])
-                    q = self.solve_ik_side_grasp(target_ik, [0, -1, 0])
-                    self.move_smooth(q, 1.0, 1.0, viewer)
-                    
-                    # Close gripper
-                    q_cur = self.d.qpos[self.qpos_ids[:5]].copy()
-                    self.move_smooth(q_cur, -0.4, 0.8, viewer)
-                    gripper_val = -0.4
-                    phase = "grasp_attempted"
-                
-                elif action_name == "VERIFY_GRASP":
-                    grip_q = self.d.qpos[self.qpos_ids[5]]
-                    if grip_q > 0.1: # Significant resistance
-                        print("✅ Grasp Verified: Bottle caught!")
-                        phase = "grasped"
-                    else:
-                        print("❌ Grasp Failed: Jaws closed empty.")
-                        phase = "idle"
-                
-                elif action_name == "LIFT_BOTTLE":
-                    if phase != "grasped":
-                        print("⚠️ Cannot lift: Not grasped.")
-                    else:
-                        q_cur = self.d.qpos[self.qpos_ids[:5]].copy()
-                        q_cur[1] -= 0.2 
-                        self.move_smooth(q_cur, -0.4, 1.5, viewer)
-                        phase = "lifted"
-                elif action_name == "MOVE_TO_BEAKER":
-                    q = self.solve_ik_side_grasp(beaker_pos + [0, 0, 0.2], [0, -1, 0])
-                    self.move_smooth(q, -0.4, 2.0, viewer)
-                    phase = "above_beaker"
-                elif action_name == "TILT_POUR":
-                    angle = float(param or 45)
-                    q_cur = self.d.qpos[self.qpos_ids[:5]].copy()
-                    q_cur[4] += math.radians(angle) * 1.5
-                    self.move_smooth(q_cur, -0.4, 2.0, viewer)
-                    phase = "pouring"
-                elif action_name == "STOP_POUR":
-                    q = self.solve_ik_side_grasp(beaker_pos + [0, 0, 0.2], [0, -1, 0])
-                    self.move_smooth(q, -0.4, 1.5, viewer)
-                    phase = "stopped"
-                elif action_name == "DONE":
+            # Let physics settle
+            for _ in range(100):
+                mujoco.mj_step(self.m, self.d)
+            viewer.sync()
+
+            init_qpos = self.d.qpos.copy()
+            init_qvel = self.d.qvel.copy()
+
+            # ─── PHASE 1: DETECT ──────────────────────────────────
+            print("\n🔍 Phase 1: DETECT – YOLOv8 + depth projection…")
+            vision = self.vision.detect_3d()
+            bottle_pos = vision.get(
+                "bottle",
+                self.d.site_xpos[self.bottle_site].copy()
+            )
+            beaker_pos = self.d.site_xpos[self.beaker_site].copy()
+            print(f"   Bottle  @ {np.round(bottle_pos, 3)}")
+            print(f"   Beaker  @ {np.round(beaker_pos, 3)}")
+
+            # ─── PHASE 2+3: APPROACH + GRASP (adaptive trials) ───
+            grasped = False
+            for trial_idx, (y_off, z_shift) in enumerate(TRIALS):
+                if trial_idx > 0:
+                    print(f"\n  🔄 RESETTING for trial {trial_idx+1}…")
+                    self.d.qpos[:] = init_qpos
+                    self.d.qvel[:] = init_qvel
+                    mujoco.mj_forward(self.m, self.d)
+                    self.move(q_home, 1.0, 1.5, viewer)
+
+                # Check bottle still upright
+                mujoco.mj_kinematics(self.m, self.d)
+                bottle_pos = self.d.site_xpos[self.bottle_site].copy()
+                if bottle_pos[2] < 0.06:
+                    print("  ❌ Bottle knocked over.")
+                    continue
+
+                print(f"\n🤖 Phase 2: APPROACH (trial {trial_idx+1}/{len(TRIALS)}, "
+                      f"Y_off={y_off}, Z_shift={z_shift})")
+
+                # ── PLAN ──
+                # gripperframe is at FINGERTIPS. To center bottle in jaws,
+                # the site must be 6cm PAST the bottle in the finger direction.
+                fingers_dir = np.array([0, -1 if y_off > 0 else 1, 0])
+                deep_offset = fingers_dir * 0.06
+
+                target = bottle_pos.copy()
+                target[2] += z_shift
+                site_grasp = target + deep_offset
+
+                q_pre   = self.solve_ik(site_grasp + fingers_dir * -0.12 + np.array([0, 0, 0.05]),
+                                         fingers_dir)
+                q_grasp = self.solve_ik(site_grasp, fingers_dir)
+                q_lift  = self.solve_ik(site_grasp + np.array([0, 0, 0.15]), fingers_dir)
+                q_above = self.solve_ik(beaker_pos + np.array([-0.05, 0.0, 0.20]),
+                                         np.array([1, 0, 0]))
+                print("  ✅ IK solutions computed")
+
+                # ── APPROACH ──
+                print("  → Pre-grasp waypoint…")
+                self.move(q_pre, 1.0, 2.0, viewer)
+
+                print(f"  → Reaching bottle (fingers → {fingers_dir})…")
+                self.move(q_grasp, 1.0, 2.0, viewer)
+
+                # ── GRASP ──
+                print("\n🖐  Phase 3: GRASP")
+                print("  → Closing gripper…")
+                self.move(q_grasp, -0.4, 1.5, viewer)
+
+                # Stabilize
+                t0 = self.d.time
+                while self.d.time - t0 < 1.0:
+                    self.d.ctrl[self.act[5]] = -0.4
+                    mujoco.mj_step(self.m, self.d)
+                    viewer.sync()
+
+                q_grip = self.d.qpos[self.qpos[5]]
+
+                # ── VERIFY ──
+                if q_grip < 0.15:
+                    print(f"  ❌ Grasp FAILED (grip width = {q_grip:.3f})")
+                    self.move(q_pre, 1.0, 1.0, viewer)
+                    continue
+                else:
+                    print(f"  ✅ GRASP VERIFIED (grip width = {q_grip:.3f})")
+                    grasped = True
                     break
-                
-                if not viewer.is_running(): break
 
-            # 4. REFLECT
-            score = "SUCCESS" if 90 < self.beaker_ml < 110 else "FAILED"
-            print(f"Episode Final Volume: {self.beaker_ml:.1f}ml - {score}")
-            
-            # Simple reflection logic
-            reflection = f"Episode {ep_num}: "
-            if self.beaker_ml < 90: reflection += "Poured too little. Tilt more or longer."
-            elif self.beaker_ml > 110: reflection += "Poured too much. Stop earlier."
-            else: reflection += "Perfect pour. Maintain strategy."
-            
-            self.knowledge.append(reflection)
-            self.save_knowledge(self.knowledge)
+            if not grasped:
+                print("\n⛔ All grasp trials exhausted. Aborting.")
+                self._reflect(ep_num, "GRASP_FAIL")
+                return
 
+            # ─── PHASE 4: LIFT ────────────────────────────────────
+            print("\n⬆️  Phase 4: LIFT")
+            self.move(q_lift, -0.4, 1.5, viewer)
+
+            # ─── PHASE 5: MOVE TO BEAKER ──────────────────────────
+            print("\n➡️  Phase 5: TRANSPORT to beaker")
+            self.move(q_above, -0.4, 2.5, viewer)
+
+            # ─── PHASE 6: POUR ────────────────────────────────────
+            print(f"\n💧 Phase 6: POUR – target {TARGET_ML:.0f} ml")
+            q_tilt = q_above.copy()
+            q_tilt[4] += 1.8   # ~100° tilt
+            print("  → Tilting…")
+            self.move(q_tilt, -0.4, 2.0, viewer)
+
+            # Hold tilt and emit particles
+            t0 = self.d.time
+            last_emit = 0
+            while self.d.time - t0 < 6.0:
+                self.d.ctrl[self.act[:5]] = q_tilt
+                self.d.ctrl[self.act[5]] = -0.4
+
+                if self.d.time - last_emit > 0.08 and self.bottle_ml > 0:
+                    self.emit_water(self.d.site_xpos[self.beaker_site].copy())
+                    last_emit = self.d.time
+
+                if int((self.d.time - t0) * 10) % 10 == 0:
+                    print(f"\r  Pouring: {self.glass_ml:.0f}ml in glass", end="", flush=True)
+
+                mujoco.mj_step(self.m, self.d)
+                viewer.sync()
+                time.sleep(self.m.opt.timestep)
+
+            print(f"\n  Final volume: {self.glass_ml:.1f} ml")
+
+            # Return upright
+            print("\n🏠 Phase 6b: RETURN")
+            self.move(q_above, -0.1, 1.5, viewer)
+            self.move(q_home, 1.0, 2.0, viewer)
+
+            # ─── PHASE 7: REFLECT ─────────────────────────────────
+            self._reflect(ep_num, "POUR_DONE")
+
+            print("\n✅ Episode complete – close viewer to exit.")
+            while viewer.is_running():
+                mujoco.mj_step(self.m, self.d)
+                viewer.sync()
+                time.sleep(m.opt.timestep if hasattr(m, 'opt') else 0.01)
+
+    # ── LLM Reflection ────────────────────────────────────────────
+    def _reflect(self, ep_num, outcome):
+        err = abs(self.glass_ml - TARGET_ML)
+        score = "SUCCESS" if err < 15 else ("OVERFILL" if self.glass_ml > TARGET_ML else "UNDERFILL")
+        print(f"\n📝 Phase 7: REFLECT – {score} (glass={self.glass_ml:.1f}ml, error={err:.1f}ml)")
+
+        try:
+            resp = self.client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content":
+                     "You are a robotics coach. Analyze the episode and give ONE short rule to improve."},
+                    {"role": "user", "content":
+                     f"Episode {ep_num}: outcome={outcome}, glass={self.glass_ml:.1f}ml, "
+                     f"target={TARGET_ML}ml, score={score}. "
+                     f"Previous lessons: {self.knowledge[-3:] if self.knowledge else 'None'}"}
+                ],
+                temperature=0.3, max_tokens=60,
+            )
+            lesson = resp.choices[0].message.content.strip()
+        except Exception as e:
+            lesson = f"Episode {ep_num}: {score} ({self.glass_ml:.1f}ml). LLM error: {e}"
+
+        print(f"   Lesson: {lesson}")
+        self.knowledge.append(lesson)
+        self._save_kb()
+
+
+# ═══════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     if "GROQ_API_KEY" not in os.environ:
-        print("Please export GROQ_API_KEY")
+        print("⚠️  Please: export GROQ_API_KEY=your_key")
     else:
         agent = AutonomousPourAgent()
         agent.run_episode(1)
