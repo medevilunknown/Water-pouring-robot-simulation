@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="so101_new_calib">
+    <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
+
+    <!-- Import so101_new_calib urdf file -->
+    <xacro:include filename="$(find so101_description)/urdf/so101.urdf" />
+
+    <!-- Import control_xacro -->
+    <xacro:include filename="so101_new_calib.ros2_control.xacro" />
+
+    <!-- World link anchor for Gazebo physics -->
+    <link name="world"/>
+    <joint name="world_base_joint" type="fixed">
+        <parent link="world"/>
+        <child link="base_link"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <gazebo reference="world_base_joint">
+        <preserveFixedJoint>true</preserveFixedJoint>
+    </gazebo>
+
+    <!-- Gazebo-side mount constraint: keep the base fixed against gravity/torque loads. -->
+    <gazebo reference="base_link">
+        <gravity>false</gravity>
+        <kinematic>true</kinematic>
+    </gazebo>
+
+    <xacro:so101_new_calib_ros2_control name="GazeboSimSystem" initial_positions_file="$(arg initial_positions_file)"/>
+
+    <gazebo>
+        <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+            <parameters>$(find so101_moveit_config)/config/ros2_controllers.yaml</parameters>
+        </plugin>
+    </gazebo>
+
+</robot>

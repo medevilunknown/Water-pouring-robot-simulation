@@ -1,0 +1,5 @@
+geometry_msgs/Pose target_pose
+bool grip_state true
+---
+bool success
+string message

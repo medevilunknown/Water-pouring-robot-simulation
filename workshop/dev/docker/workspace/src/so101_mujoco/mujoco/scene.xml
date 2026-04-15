@@ -1,0 +1,191 @@
+<mujoco model="scene">
+    <include file="so101_new_calib.xml" />
+
+    <size nconmax="4000" njmax="2000" />
+    <option timestep="0.002" integrator="implicitfast" iterations="30" ls_iterations="10"
+            cone="elliptic" gravity="0 0 -9.81" />
+
+    <visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+        <rgba haze="0.15 0.25 0.35 1" />
+        <global azimuth="160" elevation="-20" offheight="720" offwidth="720" />
+    </visual>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+            rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+        <material name="table_wood"        rgba="0.58 0.39 0.24 1" />
+        <material name="table_metal"       rgba="0.28 0.28 0.28 1" />
+        <material name="bottle_glass"      rgba="0.88 0.94 0.99 0.08" reflectance="0.12" shininess="0.6" />
+        <material name="water_fill"        rgba="0.20 0.50 0.90 0.75" reflectance="0.30" shininess="0.8" />
+        <material name="target_glass_mat"  rgba="0.86 0.95 0.99 0.07" reflectance="0.10" shininess="0.6" />
+        <material name="measure_mark"      rgba="0.1 0.1 0.1 1" />
+        <material name="water_particle"    rgba="0.25 0.55 0.95 0.85" />
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 3.5" dir="0 0 -1" directional="true" />
+        <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane"
+              contype="7" conaffinity="7" />
+
+        <camera name="world_view"      pos="0.8 -0.8 0.6"   quat="0.6 0.2 0.2 0.6" />
+        <camera name="hand_view"       mode="fixed" pos="0.34 -0.28 0.36" euler="0.75 0 0.82" />
+        <camera name="external_camera" pos="0.25 0.0 0.8"   euler="0 0 0" fovy="60" />
+        <camera name="overhead_seg"    pos="0.25 0.0 0.90"  euler="0 0 0" fovy="60" />
+
+        <!-- Workbench table -->
+        <body name="workbench" pos="0 0 0">
+            <geom name="table_top" type="box" pos="0 0 -0.025" size="0.6 0.4 0.025"
+                  material="table_wood" contype="7" conaffinity="7" />
+            <geom name="leg_fl" type="box" pos=" 0.55  0.35 -0.4" size="0.035 0.035 0.375" material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_fr" type="box" pos=" 0.55 -0.35 -0.4" size="0.035 0.035 0.375" material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_rl" type="box" pos="-0.55  0.35 -0.4" size="0.035 0.035 0.375" material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_rr" type="box" pos="-0.55 -0.35 -0.4" size="0.035 0.035 0.375" material="table_metal" contype="1" conaffinity="1" />
+        </body>
+
+        <!-- === WATER BOTTLE (graspable, freejoint) ===
+             Placed at strictly reachable spot for side grasp -->
+        <body name="water_bottle" pos="0.30 0.0 0.07">
+            <freejoint name="bottle_joint" />
+            <inertial pos="0 0 0" mass="0.18" diaginertia="2.1e-04 2.1e-04 8.0e-05" />
+
+            <geom name="bottle_visual_shell" type="cylinder" pos="0 0 -0.002" size="0.031 0.064"
+                  material="bottle_glass" contype="0" conaffinity="0" />
+            <geom name="bottle_water_fill" type="cylinder" pos="0 0 -0.028" size="0.026 0.038"
+                  material="water_fill" contype="0" conaffinity="0" />
+
+            <geom name="bottle_bottom"   type="cylinder" pos="0 0 -0.066" size="0.03 0.004"
+                  contype="6" conaffinity="7" friction="0.7 0.005 0.0001" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_xp"  type="box" pos=" 0.038 0 -0.002" size="0.01 0.032 0.064"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_xn"  type="box" pos="-0.038 0 -0.002" size="0.01 0.032 0.064"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_yp"  type="box" pos="0  0.038 -0.002" size="0.032 0.01 0.064"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_yn"  type="box" pos="0 -0.038 -0.002" size="0.032 0.01 0.064"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+
+            <geom name="neck_visual_shell" type="cylinder" pos="0 0 0.065" size="0.013 0.025"
+                  material="bottle_glass" contype="0" conaffinity="0" />
+            <geom name="neck_wall_xp" type="box" pos=" 0.0165 0 0.058" size="0.005 0.010 0.018"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_xn" type="box" pos="-0.0165 0 0.058" size="0.005 0.010 0.018"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_yp" type="box" pos="0  0.0165 0.058" size="0.010 0.005 0.018"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_yn" type="box" pos="0 -0.0165 0.058" size="0.010 0.005 0.018"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+
+            <site name="bottle_grasp"  pos="0 0 0.02"  size="0.005" rgba="0 1 0 0.5" />
+            <site name="bottle_neck"   pos="0 0 0.090" size="0.003" rgba="0 0 1 0.4" />
+            <site name="bottle_centre" pos="0 0 0.0"   size="0.003" rgba="1 1 0 0.4" />
+        </body>
+
+        <!-- === TARGET GLASS (within arm workspace) === -->
+        <body name="target_glass" pos="0.25 0.15 0.0">
+            <freejoint name="target_glass_joint" />
+
+            <geom name="target_bottom" type="cylinder" pos="0 0 0.002" size="0.028 0.002"
+                  material="target_glass_mat" contype="6" conaffinity="7"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+
+            <geom name="target_visual_shell" type="cylinder" pos="0 0 0.037" size="0.03 0.035"
+                  material="target_glass_mat" contype="0" conaffinity="0" />
+
+            <geom name="target_water_fill" type="cylinder" pos="0 0 0.006" size="0.025 0.004"
+                  material="water_fill" contype="0" conaffinity="0" />
+
+            <geom name="target_wall_xp" type="box" pos=" 0.035 0 0.037" size="0.007 0.030 0.035"
+                  contype="6" conaffinity="7" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="target_wall_xn" type="box" pos="-0.035 0 0.037" size="0.007 0.030 0.035"
+                  contype="6" conaffinity="7" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="target_wall_yp" type="box" pos="0  0.035 0.037" size="0.030 0.007 0.035"
+                  contype="6" conaffinity="7" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="target_wall_yn" type="box" pos="0 -0.035 0.037" size="0.030 0.007 0.035"
+                  contype="6" conaffinity="7" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+
+            <geom name="mark_50ml"  type="box" pos="0.0295 0 0.020" size="0.001 0.008 0.0005" material="measure_mark" contype="0" conaffinity="0" />
+            <geom name="mark_100ml" type="box" pos="0.0295 0 0.035" size="0.001 0.008 0.0005" material="measure_mark" contype="0" conaffinity="0" />
+            <geom name="mark_150ml" type="box" pos="0.0295 0 0.050" size="0.001 0.008 0.0005" material="measure_mark" contype="0" conaffinity="0" />
+            <site name="target_glass_site" pos="0 0 0.037" size="0.005" rgba="1 0 0 0.5" />
+        </body>
+
+        <!-- === WATER PARTICLES (hidden underground, teleported during pour) === -->
+        <body name="wp_00" pos="0 0 -5"><freejoint name="wpj_00"/><geom name="wpg_00" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_01" pos="0 0 -5.1"><freejoint name="wpj_01"/><geom name="wpg_01" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_02" pos="0 0 -5.2"><freejoint name="wpj_02"/><geom name="wpg_02" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_03" pos="0 0 -5.3"><freejoint name="wpj_03"/><geom name="wpg_03" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_04" pos="0 0 -5.4"><freejoint name="wpj_04"/><geom name="wpg_04" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_05" pos="0 0 -5.5"><freejoint name="wpj_05"/><geom name="wpg_05" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_06" pos="0 0 -5.6"><freejoint name="wpj_06"/><geom name="wpg_06" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_07" pos="0 0 -5.7"><freejoint name="wpj_07"/><geom name="wpg_07" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_08" pos="0 0 -5.8"><freejoint name="wpj_08"/><geom name="wpg_08" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_09" pos="0 0 -5.9"><freejoint name="wpj_09"/><geom name="wpg_09" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_10" pos="0 0 -6"><freejoint name="wpj_10"/><geom name="wpg_10" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_11" pos="0 0 -6.1"><freejoint name="wpj_11"/><geom name="wpg_11" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_12" pos="0 0 -6.2"><freejoint name="wpj_12"/><geom name="wpg_12" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_13" pos="0 0 -6.3"><freejoint name="wpj_13"/><geom name="wpg_13" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_14" pos="0 0 -6.4"><freejoint name="wpj_14"/><geom name="wpg_14" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_15" pos="0 0 -6.5"><freejoint name="wpj_15"/><geom name="wpg_15" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_16" pos="0 0 -6.6"><freejoint name="wpj_16"/><geom name="wpg_16" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_17" pos="0 0 -6.7"><freejoint name="wpj_17"/><geom name="wpg_17" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_18" pos="0 0 -6.8"><freejoint name="wpj_18"/><geom name="wpg_18" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_19" pos="0 0 -6.9"><freejoint name="wpj_19"/><geom name="wpg_19" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_20" pos="0 0 -7"><freejoint name="wpj_20"/><geom name="wpg_20" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_21" pos="0 0 -7.1"><freejoint name="wpj_21"/><geom name="wpg_21" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_22" pos="0 0 -7.2"><freejoint name="wpj_22"/><geom name="wpg_22" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_23" pos="0 0 -7.3"><freejoint name="wpj_23"/><geom name="wpg_23" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_24" pos="0 0 -7.4"><freejoint name="wpj_24"/><geom name="wpg_24" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_25" pos="0 0 -7.5"><freejoint name="wpj_25"/><geom name="wpg_25" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_26" pos="0 0 -7.6"><freejoint name="wpj_26"/><geom name="wpg_26" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_27" pos="0 0 -7.7"><freejoint name="wpj_27"/><geom name="wpg_27" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_28" pos="0 0 -7.8"><freejoint name="wpj_28"/><geom name="wpg_28" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_29" pos="0 0 -7.9"><freejoint name="wpj_29"/><geom name="wpg_29" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_30" pos="0 0 -8"><freejoint name="wpj_30"/><geom name="wpg_30" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_31" pos="0 0 -8.1"><freejoint name="wpj_31"/><geom name="wpg_31" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_32" pos="0 0 -8.2"><freejoint name="wpj_32"/><geom name="wpg_32" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_33" pos="0 0 -8.3"><freejoint name="wpj_33"/><geom name="wpg_33" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_34" pos="0 0 -8.4"><freejoint name="wpj_34"/><geom name="wpg_34" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_35" pos="0 0 -8.5"><freejoint name="wpj_35"/><geom name="wpg_35" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_36" pos="0 0 -8.6"><freejoint name="wpj_36"/><geom name="wpg_36" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_37" pos="0 0 -8.7"><freejoint name="wpj_37"/><geom name="wpg_37" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_38" pos="0 0 -8.8"><freejoint name="wpj_38"/><geom name="wpg_38" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_39" pos="0 0 -8.9"><freejoint name="wpj_39"/><geom name="wpg_39" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_40" pos="0 0 -9"><freejoint name="wpj_40"/><geom name="wpg_40" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_41" pos="0 0 -9.1"><freejoint name="wpj_41"/><geom name="wpg_41" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_42" pos="0 0 -9.2"><freejoint name="wpj_42"/><geom name="wpg_42" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_43" pos="0 0 -9.3"><freejoint name="wpj_43"/><geom name="wpg_43" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_44" pos="0 0 -9.4"><freejoint name="wpj_44"/><geom name="wpg_44" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_45" pos="0 0 -9.5"><freejoint name="wpj_45"/><geom name="wpg_45" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_46" pos="0 0 -9.6"><freejoint name="wpj_46"/><geom name="wpg_46" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_47" pos="0 0 -9.7"><freejoint name="wpj_47"/><geom name="wpg_47" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_48" pos="0 0 -9.8"><freejoint name="wpj_48"/><geom name="wpg_48" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_49" pos="0 0 -9.9"><freejoint name="wpj_49"/><geom name="wpg_49" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_50" pos="0 0 -10"><freejoint name="wpj_50"/><geom name="wpg_50" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_51" pos="0 0 -10.1"><freejoint name="wpj_51"/><geom name="wpg_51" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_52" pos="0 0 -10.2"><freejoint name="wpj_52"/><geom name="wpg_52" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_53" pos="0 0 -10.3"><freejoint name="wpj_53"/><geom name="wpg_53" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_54" pos="0 0 -10.4"><freejoint name="wpj_54"/><geom name="wpg_54" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_55" pos="0 0 -10.5"><freejoint name="wpj_55"/><geom name="wpg_55" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_56" pos="0 0 -10.6"><freejoint name="wpj_56"/><geom name="wpg_56" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_57" pos="0 0 -10.7"><freejoint name="wpj_57"/><geom name="wpg_57" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_58" pos="0 0 -10.8"><freejoint name="wpj_58"/><geom name="wpg_58" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+        <body name="wp_59" pos="0 0 -10.9"><freejoint name="wpj_59"/><geom name="wpg_59" type="sphere" size="0.004" material="water_particle" mass="0.001" contype="6" conaffinity="7"/></body>
+
+    </worldbody>
+</mujoco>

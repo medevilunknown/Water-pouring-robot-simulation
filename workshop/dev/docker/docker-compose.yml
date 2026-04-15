@@ -1,0 +1,52 @@
+services:
+  physical_ai_workspace:
+    # build: 
+    #   context: .
+    #   dockerfile: Dockerfile
+    image: sahillathwal/physical-ai-challange-2026
+    container_name: lerobot_hackathon_env
+    
+    # 1. "Hackathon-Proof" Hardware Mounting
+    # By running privileged and mounting /dev, participants can plug/unplug 
+    # the SO101 serial adapters (ttyUSB0) and webcams (video0) WITHOUT restarting the container.
+    privileged: true
+    volumes:
+      - /dev:/dev
+      
+      # Workspace persistence: edits on the host sync to the container
+      - ./workspace:/home/hacker/workspace
+      
+      # X11 GUI Forwarding (for Gazebo, MuJoCo, OpenCV, Rerun)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/home/hacker/.Xauthority:ro
+
+    environment:
+      # Pass the host's display variable to the container
+      - DISPLAY=${DISPLAY}
+      # Fixes a common Qt rendering bug in Docker
+      - QT_X11_NO_MITSHM=1
+      # Force CPU rendering to avoid Rosetta/GPU translation crashes on Mac
+      - LIBGL_ALWAYS_SOFTWARE=1
+      # Ensure ROS 2 Domain ID is consistent across the swarm
+      - ROS_DOMAIN_ID=42
+      # Fix MoveIt crash on Mac/Docker by disabling shared memory in FastDDS
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/home/hacker/workspace/disable_shm.xml
+
+    # 2. ROS 2 Transport Optimization
+    # Host network prevents multi-cast discovery issues for ROS 2 DDS.
+    network_mode: host
+    # Host IPC is mandatory for high-bandwidth zero-copy transport (e.g., camera feeds)
+    ipc: host
+    pid: host
+
+    # Keep the container running in the background
+    command: sleep infinity
+
+    # 3. NVIDIA GPU Passthrough (Requires nvidia-container-toolkit installed on host)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu, compute, utility, graphics]

@@ -1,0 +1,1924 @@
+<mujoco model="scene">
+    <include file="so101_new_calib.xml" />
+
+    <!-- Simulation settings tuned for granular fluid -->
+    <size nconmax="8000" njmax="16000" />
+    <option timestep="0.001" integrator="implicitfast" iterations="50" ls_iterations="20"
+            cone="elliptic" gravity="0 0 -9.81" />
+
+    <visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+        <rgba haze="0.15 0.25 0.35 1" />
+        <global azimuth="160" elevation="-20" />
+    </visual>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512"
+            height="3072" />
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+            rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5"
+            reflectance="0.2" />
+        <material name="table_wood" rgba="0.58 0.39 0.24 1" />
+        <material name="table_metal" rgba="0.28 0.28 0.28 1" />
+        <material name="bottle_glass" rgba="0.88 0.94 0.99 0.08" reflectance="0.12" shininess="0.6" />
+        <material name="water" rgba="0.25 0.55 0.95 0.8" reflectance="0.25" shininess="0.7" />
+        <material name="target_glass_mat" rgba="0.86 0.95 0.99 0.07" reflectance="0.10"
+            shininess="0.6" />
+        <material name="measure_mark" rgba="0.1 0.1 0.1 1" />
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 3.5" dir="0 0 -1" directional="true" />
+        <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane"
+              contype="7" conaffinity="7" />
+
+        <camera name="world_view" pos="0.8 -0.8 0.6" quat="0.6 0.2 0.2 0.6" />
+        <camera name="hand_view" mode="track" target="gripper" pos="0 -0.3 0.3" />
+
+        <!-- Workbench table -->
+        <body name="workbench" pos="0 0 0">
+            <geom name="table_top" type="box" pos="0 0 -0.025" size="0.6 0.4 0.025"
+                  material="table_wood" contype="7" conaffinity="7" />
+            <geom name="leg_fl" type="box" pos=" 0.55  0.35 -0.4" size="0.035 0.035 0.375"
+                  material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_fr" type="box" pos=" 0.55 -0.35 -0.4" size="0.035 0.035 0.375"
+                  material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_rl" type="box" pos="-0.55  0.35 -0.4" size="0.035 0.035 0.375"
+                  material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_rr" type="box" pos="-0.55 -0.35 -0.4" size="0.035 0.035 0.375"
+                  material="table_metal" contype="1" conaffinity="1" />
+        </body>
+
+        <!-- === WATER BOTTLE (graspable) === -->
+        <body name="water_bottle" pos="0.28 -0.1 0.07">
+            <freejoint name="bottle_joint" />
+            <inertial pos="0 0 0" mass="0.18" diaginertia="2.1e-04 2.1e-04 8.0e-05" />
+            <geom name="bottle_visual_shell" type="cylinder" pos="0 0 -0.002" size="0.031 0.064"
+                material="bottle_glass" contype="0" conaffinity="0" />
+            <geom name="bottle_bottom" type="cylinder" pos="0 0 -0.066" size="0.03 0.004"
+                contype="6" conaffinity="7" friction="0.7 0.005 0.0001" rgba="0.88 0.94 0.99 0.15"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_xp" type="box" pos="0.038 0 -0.002" size="0.01 0.032 0.064"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_xn" type="box" pos="-0.038 0 -0.002" size="0.01 0.032 0.064"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_yp" type="box" pos="0 0.038 -0.002" size="0.032 0.01 0.064"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_yn" type="box" pos="0 -0.038 -0.002" size="0.032 0.01 0.064"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_visual_shell" type="cylinder" pos="0 0 0.065" size="0.013 0.025"
+                material="bottle_glass" contype="0" conaffinity="0" />
+            <geom name="neck_wall_xp" type="box" pos="0.0165 0 0.058" size="0.005 0.010 0.018"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_xn" type="box" pos="-0.0165 0 0.058" size="0.005 0.010 0.018"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_yp" type="box" pos="0 0.0165 0.058" size="0.010 0.005 0.018"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_yn" type="box" pos="0 -0.0165 0.058" size="0.010 0.005 0.018"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <site name="bottle_grasp" pos="0 0 0.02" size="0.005" rgba="0 1 0 0.5" />
+        </body>
+
+        <!-- === WATER PARTICLES (individual free bodies) === -->
+        <body name="w000" pos="0.2550 -0.1240 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w001" pos="0.2550 -0.1240 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w002" pos="0.2550 -0.1240 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w003" pos="0.2550 -0.1240 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w004" pos="0.2550 -0.1240 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w005" pos="0.2550 -0.1240 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w006" pos="0.2550 -0.1240 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w007" pos="0.2550 -0.1240 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w008" pos="0.2550 -0.1240 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w009" pos="0.2550 -0.1240 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0010" pos="0.2550 -0.1240 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0011" pos="0.2550 -0.1240 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w010" pos="0.2550 -0.1180 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w011" pos="0.2550 -0.1180 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w012" pos="0.2550 -0.1180 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w013" pos="0.2550 -0.1180 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w014" pos="0.2550 -0.1180 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w015" pos="0.2550 -0.1180 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w016" pos="0.2550 -0.1180 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w017" pos="0.2550 -0.1180 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w018" pos="0.2550 -0.1180 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w019" pos="0.2550 -0.1180 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0110" pos="0.2550 -0.1180 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0111" pos="0.2550 -0.1180 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w020" pos="0.2550 -0.1120 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w021" pos="0.2550 -0.1120 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w022" pos="0.2550 -0.1120 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w023" pos="0.2550 -0.1120 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w024" pos="0.2550 -0.1120 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w025" pos="0.2550 -0.1120 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w026" pos="0.2550 -0.1120 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w027" pos="0.2550 -0.1120 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w028" pos="0.2550 -0.1120 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w029" pos="0.2550 -0.1120 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0210" pos="0.2550 -0.1120 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0211" pos="0.2550 -0.1120 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w030" pos="0.2550 -0.1060 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w031" pos="0.2550 -0.1060 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w032" pos="0.2550 -0.1060 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w033" pos="0.2550 -0.1060 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w034" pos="0.2550 -0.1060 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w035" pos="0.2550 -0.1060 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w036" pos="0.2550 -0.1060 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w037" pos="0.2550 -0.1060 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w038" pos="0.2550 -0.1060 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w039" pos="0.2550 -0.1060 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0310" pos="0.2550 -0.1060 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0311" pos="0.2550 -0.1060 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w040" pos="0.2550 -0.1000 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w041" pos="0.2550 -0.1000 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w042" pos="0.2550 -0.1000 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w043" pos="0.2550 -0.1000 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w044" pos="0.2550 -0.1000 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w045" pos="0.2550 -0.1000 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w046" pos="0.2550 -0.1000 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w047" pos="0.2550 -0.1000 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w048" pos="0.2550 -0.1000 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w049" pos="0.2550 -0.1000 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0410" pos="0.2550 -0.1000 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w0411" pos="0.2550 -0.1000 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w100" pos="0.2610 -0.1240 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w101" pos="0.2610 -0.1240 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w102" pos="0.2610 -0.1240 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w103" pos="0.2610 -0.1240 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w104" pos="0.2610 -0.1240 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w105" pos="0.2610 -0.1240 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w106" pos="0.2610 -0.1240 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w107" pos="0.2610 -0.1240 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w108" pos="0.2610 -0.1240 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w109" pos="0.2610 -0.1240 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1010" pos="0.2610 -0.1240 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1011" pos="0.2610 -0.1240 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w110" pos="0.2610 -0.1180 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w111" pos="0.2610 -0.1180 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w112" pos="0.2610 -0.1180 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w113" pos="0.2610 -0.1180 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w114" pos="0.2610 -0.1180 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w115" pos="0.2610 -0.1180 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w116" pos="0.2610 -0.1180 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w117" pos="0.2610 -0.1180 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w118" pos="0.2610 -0.1180 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w119" pos="0.2610 -0.1180 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1110" pos="0.2610 -0.1180 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1111" pos="0.2610 -0.1180 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w120" pos="0.2610 -0.1120 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w121" pos="0.2610 -0.1120 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w122" pos="0.2610 -0.1120 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w123" pos="0.2610 -0.1120 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w124" pos="0.2610 -0.1120 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w125" pos="0.2610 -0.1120 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w126" pos="0.2610 -0.1120 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w127" pos="0.2610 -0.1120 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w128" pos="0.2610 -0.1120 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w129" pos="0.2610 -0.1120 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1210" pos="0.2610 -0.1120 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1211" pos="0.2610 -0.1120 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w130" pos="0.2610 -0.1060 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w131" pos="0.2610 -0.1060 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w132" pos="0.2610 -0.1060 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w133" pos="0.2610 -0.1060 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w134" pos="0.2610 -0.1060 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w135" pos="0.2610 -0.1060 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w136" pos="0.2610 -0.1060 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w137" pos="0.2610 -0.1060 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w138" pos="0.2610 -0.1060 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w139" pos="0.2610 -0.1060 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1310" pos="0.2610 -0.1060 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1311" pos="0.2610 -0.1060 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w140" pos="0.2610 -0.1000 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w141" pos="0.2610 -0.1000 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w142" pos="0.2610 -0.1000 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w143" pos="0.2610 -0.1000 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w144" pos="0.2610 -0.1000 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w145" pos="0.2610 -0.1000 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w146" pos="0.2610 -0.1000 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w147" pos="0.2610 -0.1000 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w148" pos="0.2610 -0.1000 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w149" pos="0.2610 -0.1000 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1410" pos="0.2610 -0.1000 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w1411" pos="0.2610 -0.1000 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w200" pos="0.2670 -0.1240 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w201" pos="0.2670 -0.1240 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w202" pos="0.2670 -0.1240 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w203" pos="0.2670 -0.1240 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w204" pos="0.2670 -0.1240 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w205" pos="0.2670 -0.1240 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w206" pos="0.2670 -0.1240 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w207" pos="0.2670 -0.1240 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w208" pos="0.2670 -0.1240 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w209" pos="0.2670 -0.1240 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2010" pos="0.2670 -0.1240 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2011" pos="0.2670 -0.1240 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w210" pos="0.2670 -0.1180 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w211" pos="0.2670 -0.1180 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w212" pos="0.2670 -0.1180 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w213" pos="0.2670 -0.1180 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w214" pos="0.2670 -0.1180 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w215" pos="0.2670 -0.1180 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w216" pos="0.2670 -0.1180 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w217" pos="0.2670 -0.1180 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w218" pos="0.2670 -0.1180 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w219" pos="0.2670 -0.1180 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2110" pos="0.2670 -0.1180 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2111" pos="0.2670 -0.1180 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w220" pos="0.2670 -0.1120 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w221" pos="0.2670 -0.1120 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w222" pos="0.2670 -0.1120 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w223" pos="0.2670 -0.1120 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w224" pos="0.2670 -0.1120 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w225" pos="0.2670 -0.1120 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w226" pos="0.2670 -0.1120 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w227" pos="0.2670 -0.1120 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w228" pos="0.2670 -0.1120 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w229" pos="0.2670 -0.1120 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2210" pos="0.2670 -0.1120 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2211" pos="0.2670 -0.1120 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w230" pos="0.2670 -0.1060 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w231" pos="0.2670 -0.1060 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w232" pos="0.2670 -0.1060 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w233" pos="0.2670 -0.1060 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w234" pos="0.2670 -0.1060 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w235" pos="0.2670 -0.1060 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w236" pos="0.2670 -0.1060 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w237" pos="0.2670 -0.1060 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w238" pos="0.2670 -0.1060 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w239" pos="0.2670 -0.1060 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2310" pos="0.2670 -0.1060 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2311" pos="0.2670 -0.1060 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w240" pos="0.2670 -0.1000 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w241" pos="0.2670 -0.1000 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w242" pos="0.2670 -0.1000 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w243" pos="0.2670 -0.1000 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w244" pos="0.2670 -0.1000 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w245" pos="0.2670 -0.1000 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w246" pos="0.2670 -0.1000 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w247" pos="0.2670 -0.1000 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w248" pos="0.2670 -0.1000 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w249" pos="0.2670 -0.1000 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2410" pos="0.2670 -0.1000 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w2411" pos="0.2670 -0.1000 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w300" pos="0.2730 -0.1240 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w301" pos="0.2730 -0.1240 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w302" pos="0.2730 -0.1240 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w303" pos="0.2730 -0.1240 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w304" pos="0.2730 -0.1240 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w305" pos="0.2730 -0.1240 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w306" pos="0.2730 -0.1240 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w307" pos="0.2730 -0.1240 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w308" pos="0.2730 -0.1240 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w309" pos="0.2730 -0.1240 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3010" pos="0.2730 -0.1240 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3011" pos="0.2730 -0.1240 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w310" pos="0.2730 -0.1180 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w311" pos="0.2730 -0.1180 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w312" pos="0.2730 -0.1180 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w313" pos="0.2730 -0.1180 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w314" pos="0.2730 -0.1180 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w315" pos="0.2730 -0.1180 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w316" pos="0.2730 -0.1180 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w317" pos="0.2730 -0.1180 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w318" pos="0.2730 -0.1180 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w319" pos="0.2730 -0.1180 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3110" pos="0.2730 -0.1180 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3111" pos="0.2730 -0.1180 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w320" pos="0.2730 -0.1120 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w321" pos="0.2730 -0.1120 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w322" pos="0.2730 -0.1120 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w323" pos="0.2730 -0.1120 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w324" pos="0.2730 -0.1120 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w325" pos="0.2730 -0.1120 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w326" pos="0.2730 -0.1120 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w327" pos="0.2730 -0.1120 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w328" pos="0.2730 -0.1120 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w329" pos="0.2730 -0.1120 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3210" pos="0.2730 -0.1120 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3211" pos="0.2730 -0.1120 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w330" pos="0.2730 -0.1060 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w331" pos="0.2730 -0.1060 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w332" pos="0.2730 -0.1060 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w333" pos="0.2730 -0.1060 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w334" pos="0.2730 -0.1060 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w335" pos="0.2730 -0.1060 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w336" pos="0.2730 -0.1060 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w337" pos="0.2730 -0.1060 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w338" pos="0.2730 -0.1060 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w339" pos="0.2730 -0.1060 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3310" pos="0.2730 -0.1060 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3311" pos="0.2730 -0.1060 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w340" pos="0.2730 -0.1000 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w341" pos="0.2730 -0.1000 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w342" pos="0.2730 -0.1000 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w343" pos="0.2730 -0.1000 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w344" pos="0.2730 -0.1000 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w345" pos="0.2730 -0.1000 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w346" pos="0.2730 -0.1000 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w347" pos="0.2730 -0.1000 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w348" pos="0.2730 -0.1000 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w349" pos="0.2730 -0.1000 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3410" pos="0.2730 -0.1000 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w3411" pos="0.2730 -0.1000 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w400" pos="0.2790 -0.1240 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w401" pos="0.2790 -0.1240 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w402" pos="0.2790 -0.1240 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w403" pos="0.2790 -0.1240 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w404" pos="0.2790 -0.1240 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w405" pos="0.2790 -0.1240 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w406" pos="0.2790 -0.1240 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w407" pos="0.2790 -0.1240 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w408" pos="0.2790 -0.1240 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w409" pos="0.2790 -0.1240 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4010" pos="0.2790 -0.1240 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4011" pos="0.2790 -0.1240 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w410" pos="0.2790 -0.1180 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w411" pos="0.2790 -0.1180 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w412" pos="0.2790 -0.1180 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w413" pos="0.2790 -0.1180 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w414" pos="0.2790 -0.1180 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w415" pos="0.2790 -0.1180 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w416" pos="0.2790 -0.1180 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w417" pos="0.2790 -0.1180 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w418" pos="0.2790 -0.1180 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w419" pos="0.2790 -0.1180 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4110" pos="0.2790 -0.1180 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4111" pos="0.2790 -0.1180 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w420" pos="0.2790 -0.1120 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w421" pos="0.2790 -0.1120 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w422" pos="0.2790 -0.1120 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w423" pos="0.2790 -0.1120 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w424" pos="0.2790 -0.1120 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w425" pos="0.2790 -0.1120 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w426" pos="0.2790 -0.1120 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w427" pos="0.2790 -0.1120 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w428" pos="0.2790 -0.1120 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w429" pos="0.2790 -0.1120 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4210" pos="0.2790 -0.1120 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4211" pos="0.2790 -0.1120 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w430" pos="0.2790 -0.1060 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w431" pos="0.2790 -0.1060 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w432" pos="0.2790 -0.1060 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w433" pos="0.2790 -0.1060 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w434" pos="0.2790 -0.1060 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w435" pos="0.2790 -0.1060 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w436" pos="0.2790 -0.1060 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w437" pos="0.2790 -0.1060 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w438" pos="0.2790 -0.1060 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w439" pos="0.2790 -0.1060 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4310" pos="0.2790 -0.1060 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4311" pos="0.2790 -0.1060 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w440" pos="0.2790 -0.1000 0.0150">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w441" pos="0.2790 -0.1000 0.0210">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w442" pos="0.2790 -0.1000 0.0270">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w443" pos="0.2790 -0.1000 0.0330">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w444" pos="0.2790 -0.1000 0.0390">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w445" pos="0.2790 -0.1000 0.0450">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w446" pos="0.2790 -0.1000 0.0510">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w447" pos="0.2790 -0.1000 0.0570">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w448" pos="0.2790 -0.1000 0.0630">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w449" pos="0.2790 -0.1000 0.0690">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4410" pos="0.2790 -0.1000 0.0750">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+        <body name="w4411" pos="0.2790 -0.1000 0.0810">
+            <freejoint />
+            <geom size="0.0025" material="water" mass="0.00015" condim="3"
+                  contype="4" conaffinity="6" friction="0.01 0.001 0.0001"
+                  solimp="0.95 0.99 0.001 0.5 2" solref="0.015 0.8" />
+        </body>
+
+        <!-- === TARGET MEASURING BEAKER === -->
+        <body name="target_glass" pos="0.18 0.15 0.040">
+            <inertial pos="0 0 0" mass="0.12" diaginertia="8.0e-05 8.0e-05 5.0e-05" />
+            <geom name="glass_visual_shell" type="cylinder" pos="0 0 0.002" size="0.028 0.038"
+                material="target_glass_mat" contype="0" conaffinity="0" />
+            <geom name="glass_edge_highlight" type="box" pos="0.030 0 0.002"
+                size="0.001 0.024 0.035"
+                rgba="0.95 0.98 1.0 0.15" contype="0" conaffinity="0" />
+            <geom name="glass_bottom" type="cylinder" pos="0 0 -0.039" size="0.026 0.004"
+                contype="6" conaffinity="7" friction="0.8 0.005 0.0001" rgba="0.86 0.95 0.99 0.15" />
+            <geom name="glass_wall_xp" type="box" pos="0.028 0 0" size="0.0015 0.030 0.038"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001" />
+            <geom name="glass_wall_xn" type="box" pos="-0.028 0 0" size="0.0015 0.030 0.038"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001" />
+            <geom name="glass_wall_yp" type="box" pos="0 0.028 0" size="0.030 0.0015 0.038"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001" />
+            <geom name="glass_wall_yn" type="box" pos="0 -0.028 0" size="0.030 0.0015 0.038"
+                contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001" />
+            <geom name="mark_10ml" type="box" pos="0.032 0 -0.022" size="0.003 0.0008 0.0008"
+                material="measure_mark" contype="0" conaffinity="0" />
+            <geom name="mark_20ml" type="box" pos="0.032 0 -0.012" size="0.003 0.0008 0.0008"
+                material="measure_mark" contype="0" conaffinity="0" />
+            <geom name="mark_30ml" type="box" pos="0.032 0 -0.002" size="0.003 0.0008 0.0008"
+                material="measure_mark" contype="0" conaffinity="0" />
+            <geom name="mark_40ml" type="box" pos="0.032 0 0.008" size="0.003 0.0008 0.0008"
+                material="measure_mark" contype="0" conaffinity="0" />
+            <geom name="mark_50ml" type="box" pos="0.033 0 0.018" size="0.0045 0.001 0.001"
+                material="measure_mark" contype="0" conaffinity="0" />
+            <site name="target_glass_site" pos="0 0 0.01" size="0.008" rgba="1 0.2 0.2 0.9" />
+        </body>
+    </worldbody>
+</mujoco>

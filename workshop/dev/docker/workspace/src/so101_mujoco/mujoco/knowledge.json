@@ -1,0 +1,9 @@
+[
+  "To improve pouring accuracy, adjust the STOP_POUR action to trigger when the bottle's tilt angle reaches 20 degrees, rather than the current fixed duration. This will help prevent under-pouring by allowing more liquid to flow, aiming to reach the 100ml target.",
+  "To improve performance, reduce the TILT_POUR angle to 30 degrees to decrease the flow rate and increase control. Additionally, implement a STOP_POUR condition when 90% of the target volume is reached, allowing for a more gradual approach to the target volume of 100ml.",
+  "When the poured amount reaches 90% of the target (90ml), reduce the TILT_POUR angle to 20 to slow down the flow. STOP_POUR when the poured amount reaches 95% of the target (95ml) to avoid overspill.",
+  "When the poured amount reaches 90% of the target (90ml in this case), reduce the TILT_POUR angle to 15 to slow down the flow. STOP_POUR when the poured amount reaches 95% of the target (95ml in this case) to avoid overspill.",
+  "When the poured amount reaches 90% of the target (90ml), reduce the TILT_POUR angle to 15 to slow down the flow. STOP_POUR when the poured amount reaches 95% of the target (95ml) to avoid overspill.",
+  "Episode 1: Poured too little. Tilt more or longer.",
+  "Episode 1: Poured too little. Tilt more or longer."
+]

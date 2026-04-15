@@ -1,0 +1,124 @@
+<mujoco model="scene">
+    <include file="so101_new_calib.xml" />
+
+    <size nconmax="4000" njmax="2000" />
+    <option timestep="0.002" integrator="implicitfast" iterations="30" ls_iterations="10"
+            cone="elliptic" gravity="0 0 -9.81" />
+
+    <visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+        <rgba haze="0.15 0.25 0.35 1" />
+        <global azimuth="160" elevation="-20" />
+    </visual>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+            rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+        <material name="table_wood"        rgba="0.58 0.39 0.24 1" />
+        <material name="table_metal"       rgba="0.28 0.28 0.28 1" />
+        <material name="bottle_glass"      rgba="0.88 0.94 0.99 0.08" reflectance="0.12" shininess="0.6" />
+        <material name="water_fill"        rgba="0.20 0.50 0.90 0.75" reflectance="0.30" shininess="0.8" />
+        <material name="target_glass_mat"  rgba="0.86 0.95 0.99 0.07" reflectance="0.10" shininess="0.6" />
+        <material name="measure_mark"      rgba="0.1 0.1 0.1 1" />
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 3.5" dir="0 0 -1" directional="true" />
+        <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane"
+              contype="7" conaffinity="7" />
+
+        <camera name="world_view"      pos="0.8 -0.8 0.6"   quat="0.6 0.2 0.2 0.6" />
+        <camera name="hand_view"       mode="fixed" pos="0.34 -0.28 0.36" euler="0.75 0 0.82" />
+        <camera name="external_camera" pos="0.25 0.0 0.8"   euler="0 0 0" fovy="60" />
+
+        <!-- Workbench table -->
+        <body name="workbench" pos="0 0 0">
+            <geom name="table_top" type="box" pos="0 0 -0.025" size="0.6 0.4 0.025"
+                  material="table_wood" contype="7" conaffinity="7" />
+            <geom name="leg_fl" type="box" pos=" 0.55  0.35 -0.4" size="0.035 0.035 0.375" material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_fr" type="box" pos=" 0.55 -0.35 -0.4" size="0.035 0.035 0.375" material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_rl" type="box" pos="-0.55  0.35 -0.4" size="0.035 0.035 0.375" material="table_metal" contype="1" conaffinity="1" />
+            <geom name="leg_rr" type="box" pos="-0.55 -0.35 -0.4" size="0.035 0.035 0.375" material="table_metal" contype="1" conaffinity="1" />
+        </body>
+
+        <!-- === WATER BOTTLE (graspable, freejoint) === -->
+        <body name="water_bottle" pos="0.28 -0.1 0.07">
+            <freejoint name="bottle_joint" />
+            <inertial pos="0 0 0" mass="0.18" diaginertia="2.1e-04 2.1e-04 8.0e-05" />
+
+            <geom name="bottle_visual_shell" type="cylinder" pos="0 0 -0.002" size="0.031 0.064"
+                  material="bottle_glass" contype="0" conaffinity="0" />
+            <geom name="bottle_water_fill" type="cylinder" pos="0 0 -0.028" size="0.026 0.038"
+                  material="water_fill" contype="0" conaffinity="0" />
+
+            <geom name="bottle_bottom"   type="cylinder" pos="0 0 -0.066" size="0.03 0.004"
+                  contype="6" conaffinity="7" friction="0.7 0.005 0.0001" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_xp"  type="box" pos=" 0.038 0 -0.002" size="0.01 0.032 0.064"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_xn"  type="box" pos="-0.038 0 -0.002" size="0.01 0.032 0.064"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_yp"  type="box" pos="0  0.038 -0.002" size="0.032 0.01 0.064"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="bottle_wall_yn"  type="box" pos="0 -0.038 -0.002" size="0.032 0.01 0.064"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.05 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+
+            <geom name="neck_visual_shell" type="cylinder" pos="0 0 0.065" size="0.013 0.025"
+                  material="bottle_glass" contype="0" conaffinity="0" />
+            <geom name="neck_wall_xp" type="box" pos=" 0.0165 0 0.058" size="0.005 0.010 0.018"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_xn" type="box" pos="-0.0165 0 0.058" size="0.005 0.010 0.018"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_yp" type="box" pos="0  0.0165 0.058" size="0.010 0.005 0.018"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="neck_wall_yn" type="box" pos="0 -0.0165 0.058" size="0.010 0.005 0.018"
+                  contype="6" conaffinity="7" rgba="0 0 0 0" friction="0.02 0.005 0.0001"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+
+            <site name="bottle_grasp" pos="0 0 0.02" size="0.005" rgba="0 1 0 0.5" />
+        </body>
+
+        <!-- === TARGET GLASS (movable for teleport) === -->
+        <body name="target_glass" pos="0.25 0.12 0.0">
+            <freejoint name="target_glass_joint" />
+
+            <geom name="target_bottom" type="cylinder" pos="0 0 0.002" size="0.028 0.002"
+                  material="target_glass_mat" contype="6" conaffinity="7"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+
+            <geom name="target_visual_shell" type="cylinder" pos="0 0 0.037" size="0.03 0.035"
+                  material="target_glass_mat" contype="0" conaffinity="0" />
+
+            <geom name="target_water_fill" type="cylinder" pos="0 0 0.006" size="0.025 0.004"
+                  material="water_fill" contype="0" conaffinity="0" />
+
+            <geom name="target_wall_xp" type="box" pos=" 0.035 0 0.037" size="0.007 0.030 0.035"
+                  contype="6" conaffinity="7" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="target_wall_xn" type="box" pos="-0.035 0 0.037" size="0.007 0.030 0.035"
+                  contype="6" conaffinity="7" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="target_wall_yp" type="box" pos="0  0.035 0.037" size="0.030 0.007 0.035"
+                  contype="6" conaffinity="7" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+            <geom name="target_wall_yn" type="box" pos="0 -0.035 0.037" size="0.030 0.007 0.035"
+                  contype="6" conaffinity="7" rgba="0 0 0 0"
+                  solref="0.005 1" solimp="0.99 0.999 0.001" />
+
+            <geom name="mark_50ml"  type="box" pos="0.0295 0 0.020" size="0.001 0.008 0.0005" material="measure_mark" contype="0" conaffinity="0" />
+            <geom name="mark_100ml" type="box" pos="0.0295 0 0.035" size="0.001 0.008 0.0005" material="measure_mark" contype="0" conaffinity="0" />
+            <geom name="mark_150ml" type="box" pos="0.0295 0 0.050" size="0.001 0.008 0.0005" material="measure_mark" contype="0" conaffinity="0" />
+            <site name="target_glass_site" pos="0 0 0.037" size="0.005" rgba="1 0 0 0.5" />
+        </body>
+
+    </worldbody>
+</mujoco>

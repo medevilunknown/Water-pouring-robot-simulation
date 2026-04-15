@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: so101_leader_description
+    relative_path: urdf/so101.urdf
+  srdf:
+    relative_path: config/so101_leader_new_calib.srdf
+  package_settings:
+    author_name: sahil
+    author_email: sahillathwal566@gmail.com
+    generated_timestamp: 1773821799
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
